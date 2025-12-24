@@ -129,19 +129,24 @@ def notebook_list(max_results: int = 100) -> dict[str, Any]:
         # Count owned vs shared notebooks
         owned_count = sum(1 for nb in notebooks if nb.is_owned)
         shared_count = len(notebooks) - owned_count
+        
+        # Count notebooks shared by me (owned + is_shared=True)
+        shared_by_me_count = sum(1 for nb in notebooks if nb.is_owned and nb.is_shared)
 
         return {
             "status": "success",
             "count": len(notebooks),
             "owned_count": owned_count,
             "shared_count": shared_count,
+            "shared_by_me_count": shared_by_me_count,
             "notebooks": [
                 {
                     "id": nb.id,
                     "title": nb.title,
                     "source_count": nb.source_count,
                     "url": nb.url,
-                    "ownership": nb.ownership,  # "owned" or "shared_with_me"
+                    "ownership": nb.ownership,
+                    "is_shared": nb.is_shared,
                 }
                 for nb in notebooks[:max_results]
             ],

@@ -384,10 +384,18 @@ class ConsumerNotebookLMClient:
 
                     # Extract ownership from metadata at position 5
                     is_owned = True  # Default to owned
+                    is_shared = False # Default to not shared
                     if len(nb_data) > 5 and isinstance(nb_data[5], list) and len(nb_data[5]) > 0:
-                        ownership_value = nb_data[5][0]
+                        metadata = nb_data[5]
+                        ownership_value = metadata[0]
                         # 1 = mine (owned), 2 = shared with me
                         is_owned = ownership_value == OWNERSHIP_MINE
+                        
+                        # Check if shared (for owned notebooks)
+                        # Based on observation: [1, true, true, ...] -> Shared
+                        #                       [1, false, true, ...] -> Private
+                        if len(metadata) > 1:
+                            is_shared = bool(metadata[1])
 
                     sources = []
                     if isinstance(sources_data, list):
@@ -412,6 +420,7 @@ class ConsumerNotebookLMClient:
                             source_count=len(sources),
                             sources=sources,
                             is_owned=is_owned,
+                            is_shared=is_shared,
                         ))
 
         return notebooks
