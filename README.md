@@ -290,6 +290,16 @@ When cookies expire, you'll see an auth error. Just extract fresh cookies and ca
 
 See [CLAUDE.md](CLAUDE.md) for detailed API documentation and how to add new features.
 
+## Vibe Coding Alert
+
+Full transparency: this project was built by a non-developer using AI coding assistants. If you're an experienced Python developer, you might look at this codebase and wince. That's okay.
+
+The goal here was to scratch an itch - programmatic access to Consumer NotebookLM - and learn along the way. The code works, but it's likely missing patterns, optimizations, or elegance that only years of experience can provide.
+
+**This is where you come in.** If you see something that makes you cringe, please consider contributing rather than just closing the tab. This is open source specifically because human expertise is irreplaceable. Whether it's refactoring, better error handling, type hints, or architectural guidance - PRs and issues are welcome.
+
+Think of it as a chance to mentor an AI-assisted developer through code review. We all benefit when experienced developers share their knowledge.
+
 ## License
 
 MIT License
