@@ -36,6 +36,7 @@ extracted from the page when needed.
 - notebook_create: Create a new notebook
 - notebook_get: Get notebook details with sources
 - notebook_rename: Rename a notebook
+- chat_configure: Configure chat goal/style and response length
 - notebook_delete: Delete a notebook (REQUIRES user confirmation)
 - notebook_add_url: Add URL/YouTube as source
 - notebook_add_text: Add pasted text as source
@@ -68,6 +69,16 @@ To sync outdated Google Drive sources:
 2. Show the user which Drive sources are stale (needs_sync=True)
 3. Ask the user to confirm which sources to sync
 4. Call source_sync_drive(source_ids, confirm=True) with the confirmed source IDs
+
+## Chat Configuration
+
+To customize how the AI responds to queries:
+- chat_configure(notebook_id, goal, custom_prompt, response_length)
+
+Goals: "default" (research/brainstorming), "learning_guide" (educational), "custom" (with custom_prompt)
+Response lengths: "default", "longer", "shorter"
+
+Example: chat_configure(notebook_id, goal="custom", custom_prompt="Respond as a PhD researcher", response_length="longer")
 
 ## Studio Features (Audio/Video Overviews)
 
@@ -450,6 +461,49 @@ def notebook_rename(
                 },
             }
         return {"status": "error", "error": "Failed to rename notebook"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@mcp.tool()
+def chat_configure(
+    notebook_id: str,
+    goal: str = "default",
+    custom_prompt: str | None = None,
+    response_length: str = "default",
+) -> dict[str, Any]:
+    """Configure the chat settings for a notebook.
+
+    This sets the conversational goal/style and response length for the notebook's
+    AI chat. These settings affect how the AI responds to queries.
+
+    Args:
+        notebook_id: The notebook UUID
+        goal: The conversational goal/style. One of:
+            - "default": General purpose research and brainstorming
+            - "learning_guide": Educational focus, helps grasp new concepts
+            - "custom": Use a custom prompt (requires custom_prompt)
+        custom_prompt: Custom prompt text when goal="custom" (up to 10000 chars).
+            Examples: "respond at a PhD student level", "pretend to be a game host"
+        response_length: Response length preference. One of:
+            - "default": Balanced response length
+            - "longer": Verbose, more detailed responses
+            - "shorter": Concise, brief responses
+
+    Returns:
+        Dictionary with status and updated settings
+    """
+    try:
+        client = get_client()
+        result = client.configure_chat(
+            notebook_id=notebook_id,
+            goal=goal,
+            custom_prompt=custom_prompt,
+            response_length=response_length,
+        )
+        return result
+    except ValueError as e:
+        return {"status": "error", "error": str(e)}
     except Exception as e:
         return {"status": "error", "error": str(e)}
 

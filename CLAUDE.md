@@ -164,7 +164,7 @@ The `f.req` structure:
 | `wXbhsf` | List notebooks | `[null, 1, null, [2]]` |
 | `rLM1Ne` | Get notebook details | `[notebook_id, null, [2], null, 0]` |
 | `CCqFvf` | Create notebook | `[title, null, null, [2], [1,null,null,null,null,null,null,null,null,null,[1]]]` |
-| `s0tc2d` | Rename notebook | `[notebook_id, [[null, null, null, [null, "New Title"]]]]` |
+| `s0tc2d` | Rename notebook / Configure chat | See s0tc2d section below |
 | `WWINqb` | Delete notebook | `[[notebook_id], [2]]` |
 | `izAoDd` | Add source (unified) | See source types below |
 | `hizoJc` | Get source details | `[["source_id"], [2], [2]]` |
@@ -181,6 +181,62 @@ The `f.req` structure:
 | `R7cb6c` | Create Studio Content | See Studio RPCs section |
 | `gArtLc` | Poll Studio Status | `[[2], notebook_id, 'NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"']` |
 | `V5N4be` | Delete Studio Content | `[[2], "artifact_id"]` |
+
+### `s0tc2d` - Notebook Update RPC
+
+This RPC handles multiple notebook update operations based on which array position is populated.
+
+#### Rename Notebook
+
+Updates the notebook title.
+
+```python
+# Request params
+[notebook_id, [[null, null, null, [null, "New Title"]]]]
+
+# Example
+["549e31df-1234-5678-90ab-cdef01234567", [[null, null, null, [null, "My New Notebook Name"]]]]
+
+# Response
+# Returns updated notebook info
+```
+
+#### Configure Chat Settings
+
+Configures the notebook's chat behavior - goal/style and response length.
+
+```python
+# Request params
+[notebook_id, [[null, null, null, null, null, null, null, [[goal_code, custom_prompt?], [response_length_code]]]]]
+
+# chat_settings is at position 7 in the nested array
+# Format: [[goal_code, custom_prompt_if_custom], [response_length_code]]
+
+# Example - Default goal + Longer response:
+["549e31df-...", [[null, null, null, null, null, null, null, [[1], [4]]]]]
+
+# Example - Custom goal + Default response:
+["549e31df-...", [[null, null, null, null, null, null, null, [[2, "You are an expert..."], [1]]]]]
+
+# Example - Learning Guide + Shorter response:
+["549e31df-...", [[null, null, null, null, null, null, null, [[3], [5]]]]]
+```
+
+#### Goal/Style Codes
+
+| Code | Goal | Description |
+|------|------|-------------|
+| 1 | Default | General purpose research and brainstorming |
+| 2 | Custom | Custom prompt (up to 10,000 characters) |
+| 3 | Learning Guide | Educational focus with learning-oriented responses |
+
+#### Response Length Codes
+
+| Code | Length | Description |
+|------|--------|-------------|
+| 1 | Default | Standard response length |
+| 4 | Longer | Verbose, detailed responses |
+| 5 | Shorter | Concise, brief responses |
 
 ### Source Types (via `izAoDd` RPC)
 
@@ -549,6 +605,7 @@ params = [[2], "artifact_id"]
 | `notebook_create` | Create new notebook |
 | `notebook_get` | Get notebook details |
 | `notebook_rename` | Rename a notebook |
+| `chat_configure` | Configure chat goal/style and response length |
 | `notebook_delete` | Delete a notebook (REQUIRES confirmation) |
 | `notebook_add_url` | Add URL/YouTube source |
 | `notebook_add_text` | Add pasted text source |
@@ -591,6 +648,7 @@ Consumer NotebookLM has many more features than Enterprise. To explore:
 - [x] **Deep Research** - Extended web research with AI report (tools: `research_start`, `research_status`, `research_import`)
 - [x] **Delete notebook** - Remove notebooks (RPC: `WWINqb`)
 - [x] **Rename notebook** - Change notebook title (RPC: `s0tc2d`)
+- [x] **Configure chat** - Set chat goal/style and response length (tool: `chat_configure`, RPC: `s0tc2d`)
 - [ ] **Delete source** - Remove sources
 - [x] **Sync Drive sources** - Refresh Drive sources that changed (tools: `source_list_drive`, `source_sync_drive`)
 - [ ] **Share notebook** - Collaboration features

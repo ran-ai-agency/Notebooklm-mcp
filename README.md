@@ -12,6 +12,7 @@ An MCP server for **Consumer NotebookLM** (notebooklm.google.com) - the free/per
 | `notebook_create` | Create a new notebook |
 | `notebook_get` | Get notebook details with sources |
 | `notebook_rename` | Rename a notebook |
+| `chat_configure` | Configure chat goal/style and response length |
 | `notebook_delete` | Delete a notebook (requires confirmation) |
 | `notebook_add_url` | Add URL/YouTube as source |
 | `notebook_add_text` | Add pasted text as source |
@@ -141,6 +142,34 @@ notebook_add_text(notebook_id, text="My research notes...", title="Notes")
 result = notebook_query(notebook_id, query="What are the key points?")
 print(result["answer"])
 ```
+
+### Configure Chat Settings
+```python
+# Set a custom chat persona with longer responses
+chat_configure(
+    notebook_id=notebook_id,
+    goal="custom",
+    custom_prompt="You are an expert data analyst. Provide detailed statistical insights.",
+    response_length="longer"
+)
+
+# Use learning guide mode with default length
+chat_configure(
+    notebook_id=notebook_id,
+    goal="learning_guide",
+    response_length="default"
+)
+
+# Reset to defaults with concise responses
+chat_configure(
+    notebook_id=notebook_id,
+    goal="default",
+    response_length="shorter"
+)
+```
+
+**Goal Options:** default, custom (requires custom_prompt), learning_guide
+**Response Lengths:** default, longer, shorter
 
 ### Sync Stale Drive Sources
 ```python

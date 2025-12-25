@@ -178,6 +178,16 @@ class ConsumerNotebookLMClient:
     VIDEO_STYLE_HERITAGE = 9
     VIDEO_STYLE_PAPER_CRAFT = 10
 
+    # Chat configuration goal/style codes
+    CHAT_GOAL_DEFAULT = 1         # General purpose research and brainstorming
+    CHAT_GOAL_CUSTOM = 2          # Custom prompt (up to 10000 chars)
+    CHAT_GOAL_LEARNING_GUIDE = 3  # Educational focus
+
+    # Chat configuration response length codes
+    CHAT_RESPONSE_DEFAULT = 1     # Default response length
+    CHAT_RESPONSE_LONGER = 4      # Verbose/longer responses
+    CHAT_RESPONSE_SHORTER = 5     # Concise/shorter responses
+
     # Source type constants (from metadata position 4)
     # These represent the Google Workspace document type, NOT the source origin
     SOURCE_TYPE_GOOGLE_DOCS = 1           # Google Docs (Documents)
@@ -558,6 +568,104 @@ class ConsumerNotebookLMClient:
 
         # Success returns the notebook info with new title
         return result is not None
+
+    def configure_chat(
+        self,
+        notebook_id: str,
+        goal: str = "default",
+        custom_prompt: str | None = None,
+        response_length: str = "default",
+    ) -> dict[str, Any]:
+        """Configure the chat settings for a notebook.
+
+        This sets the conversational goal/style and response length for the notebook's
+        AI chat. These settings affect how the AI responds to queries.
+
+        Args:
+            notebook_id: The notebook UUID
+            goal: The conversational goal/style. One of:
+                - "default": General purpose research and brainstorming
+                - "learning_guide": Educational focus, helps grasp new concepts
+                - "custom": Use a custom prompt (requires custom_prompt)
+            custom_prompt: Custom prompt text when goal="custom" (up to 10000 chars)
+            response_length: Response length preference. One of:
+                - "default": Balanced response length
+                - "longer": Verbose, more detailed responses
+                - "shorter": Concise, brief responses
+
+        Returns:
+            Dict with status and updated settings
+
+        Raises:
+            ValueError: If goal="custom" but no custom_prompt provided
+            ValueError: If custom_prompt exceeds 10000 characters
+        """
+        client = self._get_client()
+
+        # Map goal string to code
+        goal_map = {
+            "default": self.CHAT_GOAL_DEFAULT,
+            "learning_guide": self.CHAT_GOAL_LEARNING_GUIDE,
+            "custom": self.CHAT_GOAL_CUSTOM,
+        }
+        if goal not in goal_map:
+            raise ValueError(f"Invalid goal: {goal}. Must be one of: {list(goal_map.keys())}")
+        goal_code = goal_map[goal]
+
+        # Validate custom prompt
+        if goal == "custom":
+            if not custom_prompt:
+                raise ValueError("custom_prompt is required when goal='custom'")
+            if len(custom_prompt) > 10000:
+                raise ValueError(f"custom_prompt exceeds 10000 chars (got {len(custom_prompt)})")
+
+        # Map response length string to code
+        length_map = {
+            "default": self.CHAT_RESPONSE_DEFAULT,
+            "longer": self.CHAT_RESPONSE_LONGER,
+            "shorter": self.CHAT_RESPONSE_SHORTER,
+        }
+        if response_length not in length_map:
+            raise ValueError(f"Invalid response_length: {response_length}. Must be one of: {list(length_map.keys())}")
+        length_code = length_map[response_length]
+
+        # Build the goal setting
+        if goal == "custom" and custom_prompt:
+            goal_setting = [goal_code, custom_prompt]
+        else:
+            goal_setting = [goal_code]
+
+        # Build the chat settings params
+        # Structure: [notebook_id, [[null, null, null, null, null, null, null, [[goal], [length]]]]]
+        chat_settings = [goal_setting, [length_code]]
+        params = [notebook_id, [[None, None, None, None, None, None, None, chat_settings]]]
+
+        body = self._build_request_body(self.RPC_RENAME_NOTEBOOK, params)
+        url = self._build_url(self.RPC_RENAME_NOTEBOOK, f"/notebook/{notebook_id}")
+
+        response = client.post(url, content=body)
+        response.raise_for_status()
+
+        parsed = self._parse_response(response.text)
+        result = self._extract_rpc_result(parsed, self.RPC_RENAME_NOTEBOOK)
+
+        if result:
+            # Extract the updated settings from response
+            # Response format: [title, null, id, emoji, null, metadata, null, [[goal_code, prompt?], [length_code]]]
+            settings = result[7] if len(result) > 7 else None
+            return {
+                "status": "success",
+                "notebook_id": notebook_id,
+                "goal": goal,
+                "custom_prompt": custom_prompt if goal == "custom" else None,
+                "response_length": response_length,
+                "raw_settings": settings,
+            }
+
+        return {
+            "status": "error",
+            "error": "Failed to configure chat settings",
+        }
 
     def delete_notebook(self, notebook_id: str) -> bool:
         """Delete a notebook permanently.
