@@ -1213,6 +1213,238 @@ def studio_delete(
         return {"status": "error", "error": str(e)}
 
 
+@mcp.tool()
+def infographic_create(
+    notebook_id: str,
+    source_ids: list[str] | None = None,
+    orientation: str = "landscape",
+    detail_level: str = "standard",
+    language: str = "en",
+    focus_prompt: str = "",
+    confirm: bool = False,
+) -> dict[str, Any]:
+    """Generate an infographic from notebook sources.
+
+    Generation takes a few minutes. Use studio_status to check progress.
+
+    IMPORTANT: Before calling this tool, you MUST:
+    1. Show the user the settings (orientation, detail_level, language, focus_prompt)
+    2. Ask the user to confirm they want to proceed
+    3. Only set confirm=True after user approval
+
+    Args:
+        notebook_id: The notebook UUID
+        source_ids: Optional list of source IDs to include (default: all sources)
+        orientation: Infographic orientation:
+            - landscape (default): Wide format (16:9)
+            - portrait: Tall format (9:16)
+            - square: Square format (1:1)
+        detail_level: Level of detail:
+            - concise: Minimal text, key points only
+            - standard (default): Balanced detail
+            - detailed: Comprehensive with more information (BETA)
+        language: BCP-47 language code (e.g., "en", "es", "fr", "de", "ja")
+        focus_prompt: Optional text describing what AI should focus on
+        confirm: Must be True to proceed. Show settings and get user confirmation first.
+
+    Returns:
+        Dictionary with artifact_id and status. Call studio_status to check progress.
+    """
+    if not confirm:
+        return {
+            "status": "pending_confirmation",
+            "message": "Please confirm these settings before creating the infographic:",
+            "settings": {
+                "notebook_id": notebook_id,
+                "orientation": orientation,
+                "detail_level": detail_level,
+                "language": language,
+                "focus_prompt": focus_prompt or "(none)",
+                "source_ids": source_ids or "all sources",
+            },
+            "note": "Set confirm=True after user approves these settings.",
+        }
+
+    try:
+        client = get_client()
+
+        # Map orientation string to code
+        orientation_codes = {
+            "landscape": 1,
+            "portrait": 2,
+            "square": 3,
+        }
+        orientation_code = orientation_codes.get(orientation.lower())
+        if orientation_code is None:
+            return {
+                "status": "error",
+                "error": f"Unknown orientation '{orientation}'. Use: landscape, portrait, or square.",
+            }
+
+        # Map detail_level string to code
+        detail_codes = {
+            "concise": 1,
+            "standard": 2,
+            "detailed": 3,
+        }
+        detail_code = detail_codes.get(detail_level.lower())
+        if detail_code is None:
+            return {
+                "status": "error",
+                "error": f"Unknown detail_level '{detail_level}'. Use: concise, standard, or detailed.",
+            }
+
+        # Get source IDs if not provided
+        if source_ids is None:
+            sources = client.get_notebook_sources_with_types(notebook_id)
+            source_ids = [s["id"] for s in sources if s["id"]]
+
+        if not source_ids:
+            return {
+                "status": "error",
+                "error": "No sources found in notebook. Add sources before creating infographic.",
+            }
+
+        result = client.create_infographic(
+            notebook_id=notebook_id,
+            source_ids=source_ids,
+            orientation_code=orientation_code,
+            detail_level_code=detail_code,
+            language=language,
+            focus_prompt=focus_prompt,
+        )
+
+        if result:
+            return {
+                "status": "success",
+                "artifact_id": result["artifact_id"],
+                "type": "infographic",
+                "orientation": result["orientation"],
+                "detail_level": result["detail_level"],
+                "language": result["language"],
+                "generation_status": result["status"],
+                "message": "Infographic generation started. Use studio_status to check progress.",
+                "notebook_url": f"https://notebooklm.google.com/notebook/{notebook_id}",
+            }
+        return {"status": "error", "error": "Failed to create infographic"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@mcp.tool()
+def slide_deck_create(
+    notebook_id: str,
+    source_ids: list[str] | None = None,
+    format: str = "detailed_deck",
+    length: str = "default",
+    language: str = "en",
+    focus_prompt: str = "",
+    confirm: bool = False,
+) -> dict[str, Any]:
+    """Generate a slide deck from notebook sources.
+
+    Generation takes a few minutes. Use studio_status to check progress.
+
+    IMPORTANT: Before calling this tool, you MUST:
+    1. Show the user the settings (format, length, language, focus_prompt)
+    2. Ask the user to confirm they want to proceed
+    3. Only set confirm=True after user approval
+
+    Args:
+        notebook_id: The notebook UUID
+        source_ids: Optional list of source IDs to include (default: all sources)
+        format: Slide deck format:
+            - detailed_deck (default): Comprehensive deck with full text and details
+            - presenter_slides: Clean visual slides with key talking points
+        length: Deck length:
+            - short: Fewer slides, key points only
+            - default: Standard length
+        language: BCP-47 language code (e.g., "en", "es", "fr", "de", "ja")
+        focus_prompt: Optional text describing what AI should focus on
+        confirm: Must be True to proceed. Show settings and get user confirmation first.
+
+    Returns:
+        Dictionary with artifact_id and status. Call studio_status to check progress.
+    """
+    if not confirm:
+        return {
+            "status": "pending_confirmation",
+            "message": "Please confirm these settings before creating the slide deck:",
+            "settings": {
+                "notebook_id": notebook_id,
+                "format": format,
+                "length": length,
+                "language": language,
+                "focus_prompt": focus_prompt or "(none)",
+                "source_ids": source_ids or "all sources",
+            },
+            "note": "Set confirm=True after user approves these settings.",
+        }
+
+    try:
+        client = get_client()
+
+        # Map format string to code
+        format_codes = {
+            "detailed_deck": 1,
+            "presenter_slides": 2,
+        }
+        format_code = format_codes.get(format.lower())
+        if format_code is None:
+            return {
+                "status": "error",
+                "error": f"Unknown format '{format}'. Use: detailed_deck or presenter_slides.",
+            }
+
+        # Map length string to code
+        length_codes = {
+            "short": 1,
+            "default": 3,
+        }
+        length_code = length_codes.get(length.lower())
+        if length_code is None:
+            return {
+                "status": "error",
+                "error": f"Unknown length '{length}'. Use: short or default.",
+            }
+
+        # Get source IDs if not provided
+        if source_ids is None:
+            sources = client.get_notebook_sources_with_types(notebook_id)
+            source_ids = [s["id"] for s in sources if s["id"]]
+
+        if not source_ids:
+            return {
+                "status": "error",
+                "error": "No sources found in notebook. Add sources before creating slide deck.",
+            }
+
+        result = client.create_slide_deck(
+            notebook_id=notebook_id,
+            source_ids=source_ids,
+            format_code=format_code,
+            length_code=length_code,
+            language=language,
+            focus_prompt=focus_prompt,
+        )
+
+        if result:
+            return {
+                "status": "success",
+                "artifact_id": result["artifact_id"],
+                "type": "slide_deck",
+                "format": result["format"],
+                "length": result["length"],
+                "language": result["language"],
+                "generation_status": result["status"],
+                "message": "Slide deck generation started. Use studio_status to check progress.",
+                "notebook_url": f"https://notebooklm.google.com/notebook/{notebook_id}",
+            }
+        return {"status": "error", "error": "Failed to create slide deck"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
 # Essential cookies for NotebookLM API authentication
 # Only these are needed - no need to save all 20+ cookies from the browser
 ESSENTIAL_COOKIES = [

@@ -178,6 +178,28 @@ class ConsumerNotebookLMClient:
     VIDEO_STYLE_HERITAGE = 9
     VIDEO_STYLE_PAPER_CRAFT = 10
 
+    # Infographic and Slide Deck types (also created via RPC_CREATE_STUDIO)
+    STUDIO_TYPE_INFOGRAPHIC = 7
+    STUDIO_TYPE_SLIDE_DECK = 8
+
+    # Infographic orientation codes
+    INFOGRAPHIC_ORIENTATION_LANDSCAPE = 1
+    INFOGRAPHIC_ORIENTATION_PORTRAIT = 2
+    INFOGRAPHIC_ORIENTATION_SQUARE = 3
+
+    # Infographic detail level codes
+    INFOGRAPHIC_DETAIL_CONCISE = 1
+    INFOGRAPHIC_DETAIL_STANDARD = 2
+    INFOGRAPHIC_DETAIL_DETAILED = 3
+
+    # Slide Deck format codes
+    SLIDE_DECK_FORMAT_DETAILED = 1      # Comprehensive deck with full text and details
+    SLIDE_DECK_FORMAT_PRESENTER = 2     # Clean visual slides with key talking points
+
+    # Slide Deck length codes
+    SLIDE_DECK_LENGTH_SHORT = 1
+    SLIDE_DECK_LENGTH_DEFAULT = 3       # Note: Default is 3, not 2
+
     # Chat configuration goal/style codes
     CHAT_GOAL_DEFAULT = 1         # General purpose research and brainstorming
     CHAT_GOAL_CUSTOM = 2          # Custom prompt (up to 10000 chars)
@@ -1633,6 +1655,157 @@ class ConsumerNotebookLMClient:
         # Success returns empty list []
         return result is not None
 
+    def create_infographic(
+        self,
+        notebook_id: str,
+        source_ids: list[str],
+        orientation_code: int = 1,  # INFOGRAPHIC_ORIENTATION_LANDSCAPE
+        detail_level_code: int = 2,  # INFOGRAPHIC_DETAIL_STANDARD
+        language: str = "en",
+        focus_prompt: str = "",
+    ) -> dict | None:
+        """Create an Infographic from notebook sources.
+
+        Args:
+            notebook_id: The notebook UUID
+            source_ids: List of source UUIDs to include
+            orientation_code: Orientation (1=Landscape, 2=Portrait, 3=Square)
+            detail_level_code: Detail level (1=Concise, 2=Standard, 3=Detailed)
+            language: BCP-47 language code (e.g., "en", "es", "fr")
+            focus_prompt: Optional text describing what AI should focus on
+
+        Returns:
+            Dict with artifact_id and status, or None on failure
+        """
+        client = self._get_client()
+
+        # Build source IDs in the nested format: [[[id1]], [[id2]], ...]
+        sources_nested = [[[sid]] for sid in source_ids]
+
+        # Build the infographic options structure
+        # Options at position 14: [[focus_prompt, language, null, orientation, detail_level]]
+        # Captured RPC structure was [[null, "en", null, 1, 2]]
+        infographic_options = [[focus_prompt or None, language, None, orientation_code, detail_level_code]]
+
+        # Build the content array with 10 nulls between source_ids and options
+        # Structure: [null, null, 7, [source_ids], null*10, [[options]]]
+        content = [
+            None, None,
+            self.STUDIO_TYPE_INFOGRAPHIC,
+            sources_nested,
+            None, None, None, None, None, None, None, None, None, None,  # 10 nulls (positions 4-13)
+            infographic_options  # position 14
+        ]
+
+        # Build the full params
+        params = [
+            [2],
+            notebook_id,
+            content
+        ]
+
+        body = self._build_request_body(self.RPC_CREATE_STUDIO, params)
+        url = self._build_url(self.RPC_CREATE_STUDIO, f"/notebook/{notebook_id}")
+
+        response = client.post(url, content=body)
+        response.raise_for_status()
+
+        parsed = self._parse_response(response.text)
+        result = self._extract_rpc_result(parsed, self.RPC_CREATE_STUDIO)
+
+        if result and isinstance(result, list) and len(result) > 0:
+            # Response: [[artifact_id, title, type, sources, status, ...]]
+            artifact_data = result[0]
+            artifact_id = artifact_data[0] if isinstance(artifact_data, list) and len(artifact_data) > 0 else None
+            status_code = artifact_data[4] if isinstance(artifact_data, list) and len(artifact_data) > 4 else None
+
+            return {
+                "artifact_id": artifact_id,
+                "notebook_id": notebook_id,
+                "type": "infographic",
+                "status": "in_progress" if status_code == 1 else "completed" if status_code == 3 else "unknown",
+                "orientation": self._get_infographic_orientation_name(orientation_code),
+                "detail_level": self._get_infographic_detail_name(detail_level_code),
+                "language": language,
+            }
+
+        return None
+
+    def create_slide_deck(
+        self,
+        notebook_id: str,
+        source_ids: list[str],
+        format_code: int = 1,  # SLIDE_DECK_FORMAT_DETAILED
+        length_code: int = 3,  # SLIDE_DECK_LENGTH_DEFAULT
+        language: str = "en",
+        focus_prompt: str = "",
+    ) -> dict | None:
+        """Create a Slide Deck from notebook sources.
+
+        Args:
+            notebook_id: The notebook UUID
+            source_ids: List of source UUIDs to include
+            format_code: Format (1=Detailed Deck, 2=Presenter Slides)
+            length_code: Length (1=Short, 3=Default)
+            language: BCP-47 language code (e.g., "en", "es", "fr")
+            focus_prompt: Optional text describing what AI should focus on
+
+        Returns:
+            Dict with artifact_id and status, or None on failure
+        """
+        client = self._get_client()
+
+        # Build source IDs in the nested format: [[[id1]], [[id2]], ...]
+        sources_nested = [[[sid]] for sid in source_ids]
+
+        # Build the slide deck options structure
+        # Options at position 16: [[focus_prompt, language, format, length]]
+        slide_deck_options = [[focus_prompt or None, language, format_code, length_code]]
+
+        # Build the content array with 12 nulls between source_ids and options
+        # Structure: [null, null, 8, [source_ids], null*12, [[options]]]
+        content = [
+            None, None,
+            self.STUDIO_TYPE_SLIDE_DECK,
+            sources_nested,
+            None, None, None, None, None, None, None, None, None, None, None, None,  # 12 nulls (positions 4-15)
+            slide_deck_options  # position 16
+        ]
+
+        # Build the full params
+        params = [
+            [2],
+            notebook_id,
+            content
+        ]
+
+        body = self._build_request_body(self.RPC_CREATE_STUDIO, params)
+        url = self._build_url(self.RPC_CREATE_STUDIO, f"/notebook/{notebook_id}")
+
+        response = client.post(url, content=body)
+        response.raise_for_status()
+
+        parsed = self._parse_response(response.text)
+        result = self._extract_rpc_result(parsed, self.RPC_CREATE_STUDIO)
+
+        if result and isinstance(result, list) and len(result) > 0:
+            # Response: [[artifact_id, title, type, sources, status, ...]]
+            artifact_data = result[0]
+            artifact_id = artifact_data[0] if isinstance(artifact_data, list) and len(artifact_data) > 0 else None
+            status_code = artifact_data[4] if isinstance(artifact_data, list) and len(artifact_data) > 4 else None
+
+            return {
+                "artifact_id": artifact_id,
+                "notebook_id": notebook_id,
+                "type": "slide_deck",
+                "status": "in_progress" if status_code == 1 else "completed" if status_code == 3 else "unknown",
+                "format": self._get_slide_deck_format_name(format_code),
+                "length": self._get_slide_deck_length_name(length_code),
+                "language": language,
+            }
+
+        return None
+
     @staticmethod
     def _get_audio_format_name(format_code: int) -> str:
         """Convert audio format code to human-readable name."""
@@ -1679,6 +1852,44 @@ class ConsumerNotebookLMClient:
             10: "paper_craft",
         }
         return styles.get(style_code, "unknown")
+
+    @staticmethod
+    def _get_infographic_orientation_name(orientation_code: int) -> str:
+        """Convert infographic orientation code to human-readable name."""
+        orientations = {
+            1: "landscape",
+            2: "portrait",
+            3: "square",
+        }
+        return orientations.get(orientation_code, "unknown")
+
+    @staticmethod
+    def _get_infographic_detail_name(detail_code: int) -> str:
+        """Convert infographic detail level code to human-readable name."""
+        details = {
+            1: "concise",
+            2: "standard",
+            3: "detailed",
+        }
+        return details.get(detail_code, "unknown")
+
+    @staticmethod
+    def _get_slide_deck_format_name(format_code: int) -> str:
+        """Convert slide deck format code to human-readable name."""
+        formats = {
+            1: "detailed_deck",
+            2: "presenter_slides",
+        }
+        return formats.get(format_code, "unknown")
+
+    @staticmethod
+    def _get_slide_deck_length_name(length_code: int) -> str:
+        """Convert slide deck length code to human-readable name."""
+        lengths = {
+            1: "short",
+            3: "default",
+        }
+        return lengths.get(length_code, "unknown")
 
     def close(self) -> None:
         """Close the HTTP client."""

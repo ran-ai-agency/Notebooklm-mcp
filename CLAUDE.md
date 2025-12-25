@@ -563,12 +563,60 @@ params = [[2], "artifact_id"]
 | **Visual Styles** | 1=Auto-select, 2=Custom, 3=Classic, 4=Whiteboard, 5=Kawaii, 6=Anime, 7=Watercolor, 8=Retro print, 9=Heritage, 10=Paper-craft |
 | **Languages** | BCP-47 codes: "en", "es", "fr", "de", "ja", etc. |
 
+##### Infographic Request
+```python
+params = [
+    [2],                           # Config
+    notebook_id,                   # Notebook UUID
+    [
+        None, None,
+        7,                         # STUDIO_TYPE_INFOGRAPHIC
+        [[[source_id1]], [[source_id2]], ...],  # Source IDs (nested arrays)
+        None, None, None, None, None, None, None, None, None, None,  # 10 nulls
+        [[focus_prompt, language, None, orientation_code, detail_level_code]]  # Options at position 14
+    ]
+]
+```
+
+#### Infographic Options
+
+| Option | Values |
+|--------|--------|
+| **Orientations** | 1=Landscape (16:9), 2=Portrait (9:16), 3=Square (1:1) |
+| **Detail Levels** | 1=Concise, 2=Standard, 3=Detailed (BETA) |
+| **Languages** | BCP-47 codes: "en", "es", "fr", "de", "ja", etc. |
+
+##### Slide Deck Request
+```python
+params = [
+    [2],                           # Config
+    notebook_id,                   # Notebook UUID
+    [
+        None, None,
+        8,                         # STUDIO_TYPE_SLIDE_DECK
+        [[[source_id1]], [[source_id2]], ...],  # Source IDs (nested arrays)
+        None, None, None, None, None, None, None, None, None, None, None, None,  # 12 nulls
+        [[focus_prompt, language, format_code, length_code]]  # Options at position 16
+    ]
+]
+```
+
+#### Slide Deck Options
+
+| Option | Values |
+|--------|--------|
+| **Formats** | 1=Detailed Deck (comprehensive), 2=Presenter Slides (key points) |
+| **Lengths** | 1=Short, 3=Default |
+| **Languages** | BCP-47 codes: "en", "es", "fr", "de", "ja", etc. |
+
 #### Studio Flow Summary
 
 ```
 1. Create Studio Content
    ├── Audio: R7cb6c with type=1 and audio options
-   └── Video: R7cb6c with type=3 and video options
+   ├── Video: R7cb6c with type=3 and video options
+   ├── Infographic: R7cb6c with type=7 and infographic options
+   └── Slide Deck: R7cb6c with type=8 and slide deck options
 
 2. Returns immediately with artifact_id (status=in_progress)
 
@@ -618,8 +666,10 @@ params = [[2], "artifact_id"]
 | `research_import` | Import discovered sources into notebook |
 | `audio_overview_create` | Generate audio podcasts (REQUIRES confirmation) |
 | `video_overview_create` | Generate video overviews (REQUIRES confirmation) |
-| `studio_status` | Check audio/video generation status |
-| `studio_delete` | Delete audio/video overviews (REQUIRES confirmation) |
+| `infographic_create` | Generate infographics (REQUIRES confirmation) |
+| `slide_deck_create` | Generate slide decks (REQUIRES confirmation) |
+| `studio_status` | Check studio artifact generation status |
+| `studio_delete` | Delete studio artifacts (REQUIRES confirmation) |
 | `save_auth_tokens` | Save tokens extracted via Chrome DevTools MCP |
 
 **IMPORTANT - Operations Requiring Confirmation:**
@@ -627,6 +677,8 @@ params = [[2], "artifact_id"]
 - `source_sync_drive` requires `confirm=True` - always show stale sources first via `source_list_drive`
 - `audio_overview_create` requires `confirm=True` - show settings and get user approval first
 - `video_overview_create` requires `confirm=True` - show settings and get user approval first
+- `infographic_create` requires `confirm=True` - show settings and get user approval first
+- `slide_deck_create` requires `confirm=True` - show settings and get user approval first
 - `studio_delete` requires `confirm=True` - list artifacts first via `studio_status`, deletion is IRREVERSIBLE
 
 ## Features NOT Yet Implemented
@@ -638,8 +690,8 @@ Consumer NotebookLM has many more features than Enterprise. To explore:
 - [ ] **Mind Maps** - Visual knowledge maps
 - [ ] **Flashcards** - Study cards from sources
 - [ ] **Quizzes** - Interactive quizzes
-- [ ] **Infographics** - Visual summaries
-- [ ] **Slide Decks** - Presentation generation
+- [x] **Infographics** - Visual summaries (tools: `infographic_create`, `studio_status`, `studio_delete`)
+- [x] **Slide Decks** - Presentation generation (tools: `slide_deck_create`, `studio_status`, `studio_delete`)
 - [ ] **Data Tables** - Structured data extraction
 - [ ] **Reports** - Long-form reports
 - [ ] **Notes** - Save chat responses as notes

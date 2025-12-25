@@ -25,8 +25,10 @@ An MCP server for **Consumer NotebookLM** (notebooklm.google.com) - the free/per
 | `research_import` | Import discovered sources into notebook |
 | `audio_overview_create` | Generate audio podcasts (requires confirmation) |
 | `video_overview_create` | Generate video overviews (requires confirmation) |
-| `studio_status` | Check audio/video generation status |
-| `studio_delete` | Delete audio/video overviews (requires confirmation) |
+| `infographic_create` | Generate infographics (requires confirmation) |
+| `slide_deck_create` | Generate slide decks (requires confirmation) |
+| `studio_status` | Check studio artifact generation status |
+| `studio_delete` | Delete studio artifacts (requires confirmation) |
 | `save_auth_tokens` | Save cookies for authentication |
 
 ## Important Disclaimer
