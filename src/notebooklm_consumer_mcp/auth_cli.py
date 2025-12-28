@@ -440,39 +440,60 @@ def run_auth_flow(port: int = CDP_DEFAULT_PORT, auto_launch: bool = True) -> Aut
     return tokens
 
 
-def run_manual_cookie_entry() -> AuthTokens | None:
+def run_manual_cookie_entry(cookie_file: str | None = None) -> AuthTokens | None:
     """Prompt user to paste cookies manually and save them.
 
     This is a simpler alternative to the Chrome DevTools extraction
     that doesn't require Chrome remote debugging.
+
+    Args:
+        cookie_file: Optional path to file containing cookies (avoids terminal truncation)
     """
     print("NotebookLM Consumer - Manual Cookie Entry")
     print("=" * 50)
     print()
-    print("This tool will guide you through saving your NotebookLM cookies.")
-    print()
-    print("Step 1: Extract cookies from Chrome DevTools")
-    print("  1. Go to https://notebooklm.google.com and log in")
-    print("  2. Press F12 to open DevTools > Network tab")
-    print("  3. Type 'batchexecute' in the filter box")
-    print("  4. Click any notebook to trigger a request")
-    print("  5. Click on a 'batchexecute' request")
-    print("  6. In Headers tab, find 'cookie:' under Request Headers")
-    print("  7. Right-click the cookie VALUE and select 'Copy value'")
-    print()
-    print("Step 2: Paste your cookies below")
-    print("-" * 50)
-    print()
-    print("Paste your cookie string and press Enter:")
-    print("(It should look like: SID=xxx; HSID=xxx; SSID=xxx; ...)")
-    print()
 
-    # Read cookie string - input() doesn't truncate, but be explicit
-    try:
-        cookie_string = input("> ").strip()
-    except EOFError:
-        print("\nNo input received.")
-        return None
+    # Read from file if provided
+    if cookie_file:
+        print(f"Reading cookies from file: {cookie_file}")
+        print()
+        try:
+            with open(cookie_file, "r") as f:
+                cookie_string = f.read().strip()
+        except FileNotFoundError:
+            print(f"ERROR: File not found: {cookie_file}")
+            return None
+        except Exception as e:
+            print(f"ERROR: Could not read file: {e}")
+            return None
+    else:
+        print("This tool will guide you through saving your NotebookLM cookies.")
+        print()
+        print("Step 1: Extract cookies from Chrome DevTools")
+        print("  1. Go to https://notebooklm.google.com and log in")
+        print("  2. Press F12 to open DevTools > Network tab")
+        print("  3. Type 'batchexecute' in the filter box")
+        print("  4. Click any notebook to trigger a request")
+        print("  5. Click on a 'batchexecute' request")
+        print("  6. In Headers tab, find 'cookie:' under Request Headers")
+        print("  7. Right-click the cookie VALUE and select 'Copy value'")
+        print()
+        print("Step 2: Paste your cookies below")
+        print("-" * 50)
+        print()
+        print("TIP: If your terminal truncates long input, save cookies to a file")
+        print("     and use: notebooklm-consumer-auth --manual --file /path/to/cookies.txt")
+        print()
+        print("Paste your cookie string and press Enter:")
+        print("(It should look like: SID=xxx; HSID=xxx; SSID=xxx; ...)")
+        print()
+
+        # Read cookie string - input() doesn't truncate, but be explicit
+        try:
+            cookie_string = input("> ").strip()
+        except EOFError:
+            print("\nNo input received.")
+            return None
 
     if not cookie_string:
         print("\nERROR: No cookie string provided.")
@@ -503,10 +524,14 @@ def run_manual_cookie_entry() -> AuthTokens | None:
         print(f"Found: {list(cookies.keys())}")
         print()
 
-        response = input("Continue anyway? (y/N): ").strip().lower()
-        if response != "y":
-            print("Cancelled.")
-            return None
+        # Skip confirmation if reading from file (no stdin available)
+        if cookie_file:
+            print("Continuing anyway (file mode)...")
+        else:
+            response = input("Continue anyway? (y/N): ").strip().lower()
+            if response != "y":
+                print("Cancelled.")
+                return None
 
     # Create tokens object (CSRF and session ID will be auto-extracted later)
     tokens = AuthTokens(
@@ -550,15 +575,20 @@ This tool extracts authentication tokens from Chrome for use with the NotebookLM
 
 TWO MODES:
 
-1. MANUAL MODE (--manual): Simple cookie paste (recommended)
+1. MANUAL MODE (--manual): Simple cookie entry (recommended)
    - Extract cookies from Chrome DevTools manually
-   - Paste them when prompted
+   - Paste when prompted, OR use --file to read from file
+   - Use --file if your terminal truncates long cookie strings
    - No Chrome remote debugging required
 
 2. AUTO MODE (default): Automatic extraction via Chrome DevTools
    - Requires Chrome with remote debugging enabled
    - Automatically extracts cookies from browser
    - More complex but fully automated
+
+EXAMPLES:
+  notebooklm-consumer-auth --manual              # Paste cookies interactively
+  notebooklm-consumer-auth --file cookies.txt   # Read cookies from file
 
 After authentication, start the MCP server with: notebooklm-consumer-mcp
         """
@@ -567,6 +597,12 @@ After authentication, start the MCP server with: notebooklm-consumer-mcp
         "--manual",
         action="store_true",
         help="Manual mode: prompt for cookie paste (simple, recommended)"
+    )
+    parser.add_argument(
+        "--file",
+        type=str,
+        metavar="PATH",
+        help="Read cookies from file instead of stdin (use with --manual)"
     )
     parser.add_argument(
         "--port",
@@ -598,9 +634,9 @@ After authentication, start the MCP server with: notebooklm-consumer-mcp
         return 0
 
     try:
-        if args.manual:
-            # Simple manual cookie entry
-            tokens = run_manual_cookie_entry()
+        if args.manual or args.file:
+            # Simple manual cookie entry (from stdin or file)
+            tokens = run_manual_cookie_entry(cookie_file=args.file)
         else:
             # Automatic extraction via Chrome DevTools
             tokens = run_auth_flow(args.port, auto_launch=not args.no_auto_launch)
