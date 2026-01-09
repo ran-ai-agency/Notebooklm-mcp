@@ -96,9 +96,20 @@ def save_tokens_to_cache(tokens: AuthTokens, silent: bool = False) -> None:
         tokens: AuthTokens to save
         silent: If True, don't print confirmation message (for auto-updates)
     """
+    import stat
+
     cache_path = get_cache_path()
+
+    # Write to file
     with open(cache_path, "w") as f:
         json.dump(tokens.to_dict(), f, indent=2)
+
+    # Restrict permissions to owner only (600 on Unix, best effort on Windows)
+    try:
+        cache_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    except (OSError, AttributeError):
+        pass  # Windows may not fully support Unix permissions
+
     if not silent:
         print(f"Auth tokens cached to {cache_path}")
 
